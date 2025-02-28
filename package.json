@@ -49,7 +49,7 @@
       "view/item/context": [
             {
               "command": "kebapSidebarView.updateKebap",
-              "when": "view == kebapSidebarView && viewItem === KebapTreeItem",
+              "when": "view == kebapSidebarView && viewItem === updatable",
               "group": "inline"
             }
           ]

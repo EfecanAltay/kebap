@@ -193,6 +193,7 @@ class KebapTreeItem extends vscode.TreeItem {
     ) {
         super(KebapPackage.name + " " + KebapPackage.currrentVersion, collapsibleState);
         this.tooltip = `${this.label}`;
+        this.contextValue = 'updatable';
         this.description = this.KebapPackage.lastVersion;
     }
 }
