@@ -30,11 +30,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
 }
 
-function createItem(itemName: string, version: string, collapsed: vscode.TreeItemCollapsibleState) {
-    const item = new KebapTreeItem(itemName, version, collapsed);
-    item.tooltip = itemName;
-    item.contextValue = itemName + version;
-    item.command = { command: 'kebapSidebarView.itemClick', title: itemName + ' tıklandı', arguments: [item] };
+function createItem(kebapPack: KebapPackage, collapsed: vscode.TreeItemCollapsibleState) {
+    const item = new KebapTreeItem(kebapPack, collapsed);
+    item.command = { command: 'kebapSidebarView.itemClick', title: kebapPack.name + ' tıklandı', arguments: [item] };
     return item;
 }
 
@@ -61,14 +59,17 @@ export class KebapSidebarView implements vscode.TreeDataProvider<KebapTreeItem> 
             if (element) {
                 // Alt öğeler (isteğe bağlı)
                 const subDependenciesPackeges: KebapTreeItem[] = [];
-                const subItem = this._kebapPackage.find(x => x.name + x.currrentVersion === element.contextValue);
+                const subItem = element.KebapPackage;
                 if (subItem) {
                     const kebapDeps = subItem.versions[subItem.currrentVersion].dependencies;
                     if (kebapDeps) {
                         for (const key in kebapDeps) {
                             let version = kebapDeps[key];
+                            const kPackage = new KebapPackage();
+                            kPackage.name = key;
+                            kPackage.currrentVersion = version;
                             subDependenciesPackeges.push(
-                                createItem(key, version, vscode.TreeItemCollapsibleState.None));
+                                createItem(kPackage, vscode.TreeItemCollapsibleState.None));
                         }
                     }
                 }
@@ -79,7 +80,7 @@ export class KebapSidebarView implements vscode.TreeDataProvider<KebapTreeItem> 
                 const appDependenciesPackeges: KebapTreeItem[] = [];
                 this._kebapPackage.forEach(dep => {
                     appDependenciesPackeges.push(
-                        createItem(dep.name, dep.currrentVersion, vscode.TreeItemCollapsibleState.Collapsed));
+                        createItem(dep, vscode.TreeItemCollapsibleState.Collapsed));
                 });
                 resolve(appDependenciesPackeges);
             }
@@ -187,12 +188,11 @@ export function deactivate() {
 
 class KebapTreeItem extends vscode.TreeItem {
     constructor(
-        public readonly label: string,
-        private version: string,
+        public KebapPackage: KebapPackage,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState
     ) {
-        super(label, collapsibleState);
-        this.tooltip = `${this.label}-${this.version}`;
-        this.description = this.version;
+        super(KebapPackage.name + " " + KebapPackage.currrentVersion, collapsibleState);
+        this.tooltip = `${this.label}`;
+        this.description = this.KebapPackage.lastVersion;
     }
 }

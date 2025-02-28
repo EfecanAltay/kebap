@@ -19,4 +19,5 @@ export class KebapPackage{
     public dependencies: Record<string, string>;
     public versions: Record<string, KebapPackage>;
     public lastVersion: string;
+    public IsUploadable: boolean;
 }
