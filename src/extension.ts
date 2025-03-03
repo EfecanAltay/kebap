@@ -3,9 +3,10 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PackageJson, KebapPackageJson, KebapPackage } from './packageJson';
+import { PackageJson, KebapPackageJson, KebapPackage, KebapVersion } from './packageJson';
+import mockData from './mock/mockData.json';
 
-
+const IsJustStabilVersions = true;
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -128,15 +129,22 @@ function readPackageJson(): Promise<KebapPackageJson> {
                         await readPackageDetails(kebapPackage.name, kebapPackage.currrentVersion)
                             .then(detail => {
                                 kebapPackage.versions = detail.versions;
+                                kebapPackage.versionObject = new KebapVersion(kebapPackage.currrentVersion);
                                 for (const key in detail.versions) {
                                     const ver = detail.versions[key];
-                                    if (!kebapPackage.lastVersion) {
-                                        kebapPackage.lastVersion = ver.version;
-                                    }
-                                    else if (kebapPackage.lastVersion < ver.version) {
-                                        kebapPackage.lastVersion = ver.version;
+                                    ver.versionObject = new KebapVersion(ver.version);
+
+                                    if ((!ver.versionObject.preRelease && IsJustStabilVersions) ||
+                                        (ver.versionObject.preRelease && !IsJustStabilVersions)) {
+                                        if (!kebapPackage.lastVersion) {
+                                            kebapPackage.lastVersion = ver.versionObject;
+                                        }
+                                        else if (kebapPackage.lastVersion.Compare(ver.versionObject)) {
+                                            kebapPackage.lastVersion = ver.versionObject;
+                                        }
                                     }
                                 }
+                                kebapPackage.IsUploadable = kebapPackage.lastVersion.Compare(kebapPackage.versionObject) > 0;
                             });
                         statusBarItem.hide();
                         kebapPackageJson.dependencies.push(kebapPackage);
@@ -172,6 +180,7 @@ function readPackageJson(): Promise<KebapPackageJson> {
 function readPackageDetails(packageName: string, version: string): Promise<KebapPackage> {
     return new Promise((resolve, reject) => {
         // Get the workspace folder (assuming the extension is installed in a workspace)
+        // resolve (mockData as KebapPackage);
         fetch(`https://registry.npmjs.org/${packageName}`)
             .then(response => response.json() as Promise<KebapPackage>)
             .then(pack => {
@@ -193,7 +202,7 @@ class KebapTreeItem extends vscode.TreeItem {
     ) {
         super(KebapPackage.name + " " + KebapPackage.currrentVersion, collapsibleState);
         this.tooltip = `${this.label}`;
-        this.contextValue = 'updatable';
-        this.description = this.KebapPackage.lastVersion;
+        this.contextValue = KebapPackage.IsUploadable ? 'updatable' : 'not-updatable';
+        this.description = KebapPackage.IsUploadable ? " --> " + this.KebapPackage.lastVersion?.ToString() : "";
     }
 }
