@@ -16,7 +16,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     readPackageJson().then((packageJson: KebapPackageJson) => {
 
-
         // Sidebar'ı kaydet
         const sidebarProvider = new KebapSidebarView(packageJson.dependencies);
         context.subscriptions.push(
@@ -70,7 +69,8 @@ export class KebapSidebarView implements vscode.TreeDataProvider<KebapTreeItem> 
                             kPackage.name = key;
                             kPackage.currrentVersion = version;
                             subDependenciesPackeges.push(
-                                createItem(kPackage, vscode.TreeItemCollapsibleState.None));
+                                createItem(kPackage, vscode.TreeItemCollapsibleState.None)
+                            );
                         }
                     }
                 }
@@ -80,8 +80,10 @@ export class KebapSidebarView implements vscode.TreeDataProvider<KebapTreeItem> 
                 // Ana öğeler
                 const appDependenciesPackeges: KebapTreeItem[] = [];
                 this._kebapPackage.forEach(dep => {
+                    const kebapDeps = dep.versions[dep.currrentVersion].dependencies;
+                    const depCount = kebapDeps ? Object.keys(kebapDeps).length : 0;
                     appDependenciesPackeges.push(
-                        createItem(dep, vscode.TreeItemCollapsibleState.Collapsed));
+                        createItem(dep, depCount > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None));
                 });
                 resolve(appDependenciesPackeges);
             }
