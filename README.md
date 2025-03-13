@@ -15,6 +15,7 @@ For example, if there is an image subfolder under your extension project workspa
 > Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
 
 -->
+![image](https://github.com/user-attachments/assets/a226fd98-84a2-4f14-988e-4041e25bebb2)
 
 ## Requirements
 
