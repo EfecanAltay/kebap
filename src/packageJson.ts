@@ -21,6 +21,7 @@ export class KebapPackage {
     public versions: Record<string, KebapPackage>;
     public lastVersion: KebapVersion;
     public IsUploadable: boolean;
+    public ShowingLastVersion: boolean;
 }
 
 export class KebapVersion {
@@ -28,14 +29,20 @@ export class KebapVersion {
     public minor: number;
     public patch: number;
     public preRelease?: KebapPreRelease;
+    public preConditionFlag: string;
     /**
      *
      */
     constructor(strVersion: string) {
         this.Parse(strVersion);
+        this.preConditionFlag = "";
     }
 
     public Parse(strVersion: string): KebapVersion {
+        if(strVersion.startsWith("^") || strVersion.startsWith("~")){
+            this.preConditionFlag = strVersion[0];
+            strVersion = strVersion.substring(1);
+        }
         const mainVersion = strVersion.split("-");
         let fVersion = mainVersion[0].split(".");
         if (fVersion.length > 0) {
@@ -58,8 +65,10 @@ export class KebapVersion {
     }
 
     public ToString(): string {
-        if (this.preRelease) { return `${this.major}.${this.minor}.${this.patch}-${this.preRelease.ToString()}`; }
-        else { return `${this.major}.${this.minor}.${this.patch}`; }
+        if (this.preRelease) 
+            { return `${this.preConditionFlag}${this.major}.${this.minor}.${this.patch}-${this.preRelease.ToString()}`; }
+        else
+         { return `${this.preConditionFlag}${this.major}.${this.minor}.${this.patch}`; }
     }
 
     public Compare(version: KebapVersion): number {

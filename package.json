@@ -51,7 +51,7 @@
               "command": "kebapSidebarView.updateKebap",
               "when": "view == kebapSidebarView && viewItem === updatable",
               "group": "inline"
-            }
+            } 
           ]
     }
   },

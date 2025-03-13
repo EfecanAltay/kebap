@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PackageJson, KebapPackageJson, KebapPackage, KebapVersion } from './packageJson';
-import mockData from './mock/mockData.json';
+import { ChildProcess, spawn } from 'child_process';
 
 const IsJustStabilVersions = true;
 // This method is called when your extension is activated
@@ -25,6 +25,53 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
             vscode.commands.registerCommand('kebapSidebarView.itemClick', (item) => {
                 vscode.window.showInformationMessage('Öğe 1\'e tıklandı!');
+            }),
+            vscode.commands.registerCommand('kebapSidebarView.updateKebap', async (item) => {
+                vscode.window.showInformationMessage(`Started Update Package: ${item.KebapPackage.name}`);
+                let terminal = vscode.window.terminals.find(t => t.name === "Kebap Update");
+                if (!terminal) {
+                    terminal = vscode.window.createTerminal({ name: "Kebap Update" });
+                }
+
+                let execution: vscode.TerminalShellExecution | undefined = undefined;
+                // Send command to terminal that has been alive for a while
+                const commandLine = `npm install ${item.KebapPackage.name}@${item.KebapPackage.lastVersion.ToString()}`;
+                if (terminal.shellIntegration) {
+                    execution = terminal.shellIntegration.executeCommand(commandLine);
+                } else {
+                    terminal.sendText(commandLine);
+                    // Without shell integration, we can't know when the command has finished or what the
+                    // exit code was.
+                }
+
+                const stream = execution?.read();
+                if (stream) {
+                    let isErr = false;
+                    const decoder = new TextDecoder('utf-8');
+                    for await (const chunk of stream) {
+                        try {
+                            // ANSI kaçış karakterlerini kaldır (OSC `\x1b]0;...` dahil)
+                            const ansiRegex = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?\x07)/g;
+                            // Gereksiz `\r`, `0;`, `` ve boşlukları temizleme
+                            const extraCharsRegex = /^\d+;/g;
+                            const cleanData = chunk.replace(ansiRegex, "").replace(extraCharsRegex, "").replace("", "").trim();
+                            if (cleanData.includes("npm error ERESOLVE could not resolve")) {
+                                isErr = true;
+                            } else if (cleanData.includes("npm WARN!")) {
+                                isErr = true;
+                            }
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+                    if (isErr) {
+                        vscode.window.showInformationMessage("")
+                        vscode.window.showErrorMessage("Paket güncelleme başarısız oldu.");
+                    }
+                    else {
+                        vscode.window.showInformationMessage("Paket güncelleme başarılı");
+                    }
+                }
             })
         );
     });
@@ -61,13 +108,19 @@ export class KebapSidebarView implements vscode.TreeDataProvider<KebapTreeItem> 
                 const subDependenciesPackeges: KebapTreeItem[] = [];
                 const subItem = element.KebapPackage;
                 if (subItem) {
-                    const kebapDeps = subItem.versions[subItem.currrentVersion].dependencies;
-                    if (kebapDeps) {
-                        for (const key in kebapDeps) {
-                            let version = kebapDeps[key];
+                    const currentKebapDep = subItem.versions[subItem.currrentVersion].dependencies;
+                    const lastKebapDep = subItem.versions[subItem.lastVersion.ToString()].dependencies;
+
+                    if (currentKebapDep) {
+                        for (const key in currentKebapDep) {
+                            const lastVersion = lastKebapDep[key];
+                            const version = currentKebapDep[key];
                             const kPackage = new KebapPackage();
                             kPackage.name = key;
                             kPackage.currrentVersion = version;
+                            kPackage.versionObject = new KebapVersion(version);
+                            kPackage.lastVersion = new KebapVersion(lastVersion);
+                            kPackage.ShowingLastVersion = true;//kPackage.lastVersion.Compare(kPackage.versionObject) > 0;              
                             subDependenciesPackeges.push(
                                 createItem(kPackage, vscode.TreeItemCollapsibleState.None)
                             );
@@ -88,7 +141,6 @@ export class KebapSidebarView implements vscode.TreeDataProvider<KebapTreeItem> 
                 resolve(appDependenciesPackeges);
             }
         });
-
     }
 }
 
@@ -147,6 +199,7 @@ function readPackageJson(): Promise<KebapPackageJson> {
                                     }
                                 }
                                 kebapPackage.IsUploadable = kebapPackage.lastVersion.Compare(kebapPackage.versionObject) > 0;
+                                kebapPackage.ShowingLastVersion = kebapPackage.IsUploadable;
                             });
                         statusBarItem.hide();
                         kebapPackageJson.dependencies.push(kebapPackage);
@@ -205,6 +258,6 @@ class KebapTreeItem extends vscode.TreeItem {
         super(KebapPackage.name + " " + KebapPackage.currrentVersion, collapsibleState);
         this.tooltip = `${this.label}`;
         this.contextValue = KebapPackage.IsUploadable ? 'updatable' : 'not-updatable';
-        this.description = KebapPackage.IsUploadable ? " --> " + this.KebapPackage.lastVersion?.ToString() : "";
+        this.description = this.KebapPackage.lastVersion && KebapPackage.ShowingLastVersion ? " --> " + this.KebapPackage.lastVersion?.ToString() : "";
     }
 }
